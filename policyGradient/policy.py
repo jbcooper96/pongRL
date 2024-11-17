@@ -20,17 +20,6 @@ class Policy(nn.Module):
             nn.Linear(11400, 2),
             nn.Softmax(dim=0)
         )
-        """
-        self.layers = nn.Sequential(
-            nn.Linear(INPUT_SIZE, HIDDEN_SIZE),
-            nn.LeakyReLU(),
-            nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE),
-            nn.LeakyReLU(),
-            nn.Linear(HIDDEN_SIZE, OUTPUT_SIZE),
-            nn.Sigmoid(),
-            nn.Softmax(dim=0)
-        )
-        """
 
     def forward(self, obs):
        

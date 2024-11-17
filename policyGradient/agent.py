@@ -10,7 +10,7 @@ class Agent:
         self.model = Policy()
         self.obs_list = []
         self.reward_list = []
-        self.opt = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, maximize=True)
+        self.opt = torch.optim.SGD(self.model.parameters(), lr=learning_rate, maximize=True, weight_decay=.001)
         if training:
             self.model.train()
 
@@ -52,10 +52,7 @@ class Agent:
             elif self.reward_list[i][1] == -1:
                 reward_final = -1
                 total_reward_count += 1
-            gradient += reward_final * torch.clamp(self.reward_list[i][0], min=-10, max=0)
-            #gradient += total_reward * torch.clamp(self.reward_list[i][0], min=-10, max=0)
-            #print(f"gradient: {gradient}")
-            #gradient = torch.clamp(gradient, min=-100, max=100)
+            gradient += reward_final * self.reward_list[i][0]
 
         gradient = gradient / len(self.reward_list)
         print("backwards")
