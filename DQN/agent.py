@@ -5,11 +5,7 @@ import random
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 class Agent:
-<<<<<<< HEAD
     def __init__(self, discount_factor=.95, buffer_size=2500, k=1000, load=False, load_file="qModel.pt", save_file ="qModel.pt", epsilon=1, epsilon_decay=.995, epsilon_min=.05, distributed=False, device=torch.device("cpu"), train=True):
-=======
-    def __init__(self, discount_factor=.95, buffer_size=600, k=1000, load=False, load_file="qModel.pt", save_file ="qModel.pt", epsilon=1, epsilon_decay=.995, epsilon_min=.05, distributed=False, device=torch.device("cpu")):
->>>>>>> 1efd6aa4527f57185defa376ec3db6b19e46aa80
         self.discount_factor = discount_factor
         self.buffer = deque(maxlen=buffer_size)
         self.k = k
