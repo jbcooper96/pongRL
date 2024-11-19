@@ -37,7 +37,7 @@ def run_thread(rank, world_size):
         gym.register_envs(ale_py)
 
 
-        agent = Agent(load=load, distibuted=True, device=rank)
+        agent = Agent(load=load, distributed=True, device=rank)
 
         env = gym.make('PongNoFrameskip-v4', render_mode="rgb_array", obs_type="grayscale")
 
@@ -53,9 +53,8 @@ def run_thread(rank, world_size):
                 action = agent.act(state)
                 next_state, reward, terminated, truncated, info = wrapped_env.step(2 + action, reward=reward)
                 done = terminated or truncated
-                if train:
-                    agent.save_to_buffer(state, action, reward, next_state, done)
-                    agent.replay(40)
+                agent.save_to_buffer(state, action, reward, next_state, done)
+                agent.replay(400)
     finally:
         cleanup()
 

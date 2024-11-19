@@ -5,7 +5,11 @@ import random
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 class Agent:
+<<<<<<< HEAD
     def __init__(self, discount_factor=.95, buffer_size=2500, k=1000, load=False, load_file="qModel.pt", save_file ="qModel.pt", epsilon=1, epsilon_decay=.995, epsilon_min=.05, distributed=False, device=torch.device("cpu"), train=True):
+=======
+    def __init__(self, discount_factor=.95, buffer_size=600, k=1000, load=False, load_file="qModel.pt", save_file ="qModel.pt", epsilon=1, epsilon_decay=.995, epsilon_min=.05, distributed=False, device=torch.device("cpu")):
+>>>>>>> 1efd6aa4527f57185defa376ec3db6b19e46aa80
         self.discount_factor = discount_factor
         self.buffer = deque(maxlen=buffer_size)
         self.k = k
@@ -66,6 +70,7 @@ class Agent:
         avg_loss_non_zero_reward = 0.0
         total_reward = 0.0
         reward_count = 0.0
+        loss = torch.tensor(0).to(self.device).to(torch.float)
         for sample in samples:
             state, action, reward, next_state, done = sample
             
@@ -75,6 +80,7 @@ class Agent:
                 y = reward + self.discount_factor * torch.max(next_state_scores)
 
             scores = self.q_model(state.to(self.device))
+<<<<<<< HEAD
             loss = torch.nn.functional.mse_loss(scores[action], y.to(self.device))
             if reward != 0:
                 total_reward += reward
@@ -86,6 +92,14 @@ class Agent:
             self.optim.step()
             avg_loss += loss.item()
             
+=======
+            loss += torch.nn.functional.mse_loss(scores[action], y.to(self.device))
+        self.optim.zero_grad()
+        loss = loss / len(samples)
+        loss.backward()
+        self.optim.step()
+        avg_loss += loss.item()
+>>>>>>> 1efd6aa4527f57185defa376ec3db6b19e46aa80
 
         if reward_count > 0:
             avg_reward = total_reward / reward_count
