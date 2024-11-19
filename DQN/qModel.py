@@ -13,7 +13,7 @@ class QModel(nn.Module):
             nn.Conv2d(24, 24, kernel_size=2, stride=2),
             nn.LeakyReLU(),
             nn.Flatten(start_dim=0),
-            nn.Linear(2400, 2)
+            nn.Linear(2400, 6)
         )
 
     def forward(self, state):
