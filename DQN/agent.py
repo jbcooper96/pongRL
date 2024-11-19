@@ -80,7 +80,6 @@ class Agent:
                 y = reward + self.discount_factor * torch.max(next_state_scores)
 
             scores = self.q_model(state.to(self.device))
-<<<<<<< HEAD
             loss = torch.nn.functional.mse_loss(scores[action], y.to(self.device))
             if reward != 0:
                 total_reward += reward
@@ -92,14 +91,6 @@ class Agent:
             self.optim.step()
             avg_loss += loss.item()
             
-=======
-            loss += torch.nn.functional.mse_loss(scores[action], y.to(self.device))
-        self.optim.zero_grad()
-        loss = loss / len(samples)
-        loss.backward()
-        self.optim.step()
-        avg_loss += loss.item()
->>>>>>> 1efd6aa4527f57185defa376ec3db6b19e46aa80
 
         if reward_count > 0:
             avg_reward = total_reward / reward_count
