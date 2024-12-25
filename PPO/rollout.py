@@ -12,6 +12,7 @@ parser.add_argument('-l', '--load', help='Load saved model', action='store_true'
 parser.add_argument('-r', '--render', help='Render rollout for testing', action='store_true')
 parser.add_argument('-v', '--record', help='Record video for testing', action='store_true')
 parser.add_argument('-d', '--device', help="Device to run torch models on")
+parser.add_argument('-e', '--env', help="Number of environments")
 
 train = False
 args = parser.parse_args()
@@ -29,6 +30,9 @@ from ppo import PPO
 gym.register_envs(ale_py)
 
 ENV_NUMBER = 6 if not render else 1
+
+if args.env:
+    ENV_NUMBER = int(args.env)
 
 env = make_atari_env("PongNoFrameskip-v4", n_envs=ENV_NUMBER, seed=0)
 env = VecFrameStack(env, n_stack=4)
