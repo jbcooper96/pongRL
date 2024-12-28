@@ -5,10 +5,11 @@ import torch.nn as nn
 from ppo_agent import PPOAgent
 import math
 from settings import Settings
+import wandb
 
 OPT_PATH = "opt.pt"
 class PPO:
-    def __init__(self, env, model, value_model, env_number, batch_size=40, learning_rate=2.5e-4, gamma=.99, lam=.9, clip_coef=.2, entropy_coef=0, val_coef=1, epochs=3, load=False):
+    def __init__(self, env, model, value_model, env_number, batch_size=40, learning_rate=2.5e-4, gamma=.99, lam=.9, clip_coef=.2, entropy_coef=.01, val_coef=1, epochs=3, load=False):
         self.env = env
         self.model = model
         self.value_model = value_model
@@ -22,6 +23,9 @@ class PPO:
         self.opt = torch.optim.AdamW(self.agent.parameters(), learning_rate)
         if load:
             self.opt.load_state_dict(torch.load(OPT_PATH, weights_only=True))
+            for param_group in self.opt.param_groups:
+                param_group['lr'] = learning_rate
+
         self.max_grad_norm = 0.5
         self.batch_size = batch_size
         self.epochs = epochs
@@ -36,7 +40,7 @@ class PPO:
     def save_opt(self):
         torch.save(self.opt.state_dict(), OPT_PATH)
 
-    def render(self, with_pause=True, debug=False):
+    def render(self, with_pause=False, debug=False):
         if debug:
             print(self.agent.model.parameters())
             for name, param in self.agent.model.named_parameters():
@@ -57,17 +61,32 @@ class PPO:
         while True:
             i +=1
             with torch.no_grad():
-                actions, _, _ = self.agent.get_action_and_value(obs, print_probs=True)
+                actions, _, _ = self.agent.get_action_and_value(obs, do_sample=False)
             obs, reward, dones, info = self.env.step(actions.numpy())
             obs = self.get_torch_obs(obs)
             self.env.render("human")
             if with_pause and (i % 4) == 0:
                 c = input("Continue?")
 
+    def log_rewards(self, rewards, dones):
+        self.episode_rewards_cur += rewards
+        for i in range(self.env_number):
+            if dones[i]:
+                self.episode_rewards.append(self.episode_rewards_cur[i])
+                self.episode_rewards_cur[i] = 0
+
+        if len(self.episode_rewards) >= self.env_number:
+            avg_rewards = torch.tensor(self.episode_rewards).mean().item()
+            self.episode_rewards = []
+            wandb.log({"avg_reward_per_episode": avg_rewards})
+            print("avg reward per ep", avg_rewards)
+
     def run(self, total_timestamps, time_stamp_per_it):
         next_obs = self.env.reset()
         next_obs = self.get_torch_obs(next_obs)
         next_done = torch.zeros(self.env_number).to(Settings.device)
+        self.episode_rewards_cur = torch.zeros(self.env_number).to(Settings.device)
+        self.episode_rewards = []
 
         for update_number in range(total_timestamps//(time_stamp_per_it*self.env_number)):
             all_obs = torch.zeros(time_stamp_per_it, self.env_number, 4, 84, 84).to(Settings.device)
@@ -90,13 +109,14 @@ class PPO:
                 all_actions[step] = actions
                 rewards[step] = torch.tensor(reward)
                 all_values[step] = values
+                self.log_rewards(rewards[step], dones)
                 
 
-            self.learn(all_obs, all_actions, rewards, all_values, log_probs, done, next_obs, next_done, time_stamp_per_it, (update_number%10) == 0)
+            self.learn(all_obs, all_actions, rewards, all_values, log_probs, done, next_obs, next_done, time_stamp_per_it, (update_number%10) == 0, update_number)
 
                 
 
-    def learn(self, all_obs, all_actions, rewards, all_values, all_log_probs, done, next_obs, next_done, time_stamp_per_it, save=False):
+    def learn(self, all_obs, all_actions, rewards, all_values, all_log_probs, done, next_obs, next_done, time_stamp_per_it, save=False, update_number=0):
         advantages = torch.zeros(time_stamp_per_it, self.env_number).to(Settings.device)
         with torch.no_grad():
             next_values = self.agent.get_next_value(next_obs)
@@ -131,11 +151,15 @@ class PPO:
         print(torch.max(rewards))
         nonzero = torch.count_nonzero(rewards)
         print(nonzero)
-        print(torch.sum(rewards)/ nonzero)
+        avg_reward = torch.sum(rewards)/ nonzero
+        print(avg_reward)
         print(returns.mean())
+        all_entropy = []
+        all_approx_kl = []
         for epoch in range(self.epochs):
             e_inds = torch.randperm(time_stamp_per_it*self.env_number).to(Settings.device)
             total_loss = 0.0
+            approx_kl = None
             for batch in range(batch_count):
                 cur_batch_size = self.batch_size
                 if batch == batch_count - 1 and last_batch_size > 0:
@@ -149,6 +173,9 @@ class PPO:
                 log_probs_ratio = log_probs - all_log_probs.index_select(0, b_inds)
                 
                 ratio = torch.exp(log_probs_ratio)
+
+                with torch.no_grad():
+                    approx_kl = torch.mean((ratio - 1) - log_probs_ratio)
                 
                 batch_advantages = advantages.index_select(0, b_inds)
                 batch_advantages = (batch_advantages - batch_advantages.mean()) / (batch_advantages.std() + 1e-8)
@@ -158,7 +185,9 @@ class PPO:
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 v_loss = 0.5 * ((value - returns.index_select(0, b_inds)) ** 2).mean()
-                entropy_loss = entropy.mean()
+                mean_entropy = entropy.mean()
+                entropy_loss = -mean_entropy
+                all_entropy.append(mean_entropy)
                 loss = pg_loss + self.val_coef * v_loss + self.entropy_coef * entropy_loss
 
                 if math.isnan(loss):
@@ -182,10 +211,24 @@ class PPO:
                 self.opt.step()
 
             print(total_loss/batch_count)
+            if approx_kl != None:
+                if approx_kl > .02:
+                    print("KL too high")
+                    break
 
+        all_entropy = torch.tensor(all_entropy)
+        avg_entropy = all_entropy.mean().item()
+
+        wandb.log({
+            "avg_reward": avg_reward,
+            "avg_entropy": avg_entropy,
+            "returns": returns.mean().item(),
+            "approx_kl": torch.tensor(all_approx_kl).mean().item()
+        })
+        print(avg_entropy)
         if save:
             print("SAVING")
-            self.agent.save()
+            self.agent.save(update_number)
             self.save_opt()
 
             

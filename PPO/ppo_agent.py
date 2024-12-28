@@ -4,6 +4,8 @@ from settings import Settings
 
 VALUE_FILE = "value.pt"
 ACTION_FILE = "action.pt"
+SAVE_VALUE_FILE = "value.pt"
+SAVE_ACTION_FILE = "action.pt"
 
 class PPOAgent:
     def __init__(self, model, value_model):
@@ -31,7 +33,7 @@ class PPOAgent:
             else:
                 actions[action_idx] = indices = torch.argmax(probs[action_idx]).item()
 
-            log_probs[action_idx] = torch.log(probs[action_idx, indices])
+            log_probs[action_idx] = torch.log(probs[action_idx, indices] + 1e-8)
 
         return actions.int(), torch.squeeze(values, dim=-1), log_probs
         
@@ -42,7 +44,7 @@ class PPOAgent:
     def get_logprobs_and_value(self, obs, actions):
         values = self.value_model(obs)
         probs = self.model(obs)
-        log_probs = torch.log(probs)
+        log_probs = torch.log(probs + 1e-8)
         entropy = -probs * log_probs
         entropy = torch.sum(entropy, dim=1)
 
@@ -53,9 +55,13 @@ class PPOAgent:
 
         return log_probs_for_actions, values, entropy
     
-    def save(self):
-        torch.save(self.model.state_dict(), ACTION_FILE)
-        torch.save(self.value_model.state_dict(), VALUE_FILE)
+    def save(self, update_number=None):
+        action_file, value_file = (SAVE_ACTION_FILE, SAVE_VALUE_FILE)
+
+        #action_file += str(update_number)
+        #value_file += str(update_number)
+        torch.save(self.model.state_dict(), action_file)
+        torch.save(self.value_model.state_dict(), value_file)
 
     def load(self): 
         self.model.load_state_dict(torch.load(ACTION_FILE, weights_only=True))
