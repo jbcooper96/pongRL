@@ -1,3 +1,5 @@
-torch
 ale-py
 gymnasium
+opencv_python
+wandb
+stable_baselines3
