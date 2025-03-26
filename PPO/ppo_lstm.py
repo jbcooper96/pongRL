@@ -6,6 +6,7 @@ from ppo_agent_lstm import PPOAgent
 import math
 from models_lstm import HIDDEN_SIZE
 from settings import Settings
+import wandb
 
 OPT_PATH = "opt.pt"
 class PPO:
@@ -36,6 +37,19 @@ class PPO:
     
     def save_opt(self):
         torch.save(self.opt.state_dict(), OPT_PATH)
+
+    def log_rewards(self, rewards, dones):
+        self.episode_rewards_cur += rewards
+        for i in range(self.env_number):
+            if dones[i]:
+                self.episode_rewards.append(self.episode_rewards_cur[i])
+                self.episode_rewards_cur[i] = 0
+
+        if len(self.episode_rewards) >= self.env_number:
+            avg_rewards = torch.tensor(self.episode_rewards).mean().item()
+            self.episode_rewards = []
+            wandb.log({"avg_reward_per_episode": avg_rewards})
+            print("avg reward per ep", avg_rewards)
 
     def get_hidden_states(self, next_done, h_val, c_val, h_act, c_act):
         for i in range(next_done.size()[0]):
@@ -93,6 +107,7 @@ class PPO:
                 all_values[step] = values
 
                 h_value, c_value, h_action, c_action = self.get_hidden_states(next_done, h_value, c_value, h_action, c_action)
+                self.log_rewards(rewards[step], dones)
 
                 
             states = [h_value, c_value, h_action, c_action, init_h_value, init_c_value, init_h_action, init_c_action]

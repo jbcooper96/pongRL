@@ -6,6 +6,7 @@ from ppo_agent import PPOAgent
 import math
 from settings import Settings
 import wandb
+import time
 
 OPT_PATH = "opt.pt"
 class PPO:
@@ -53,20 +54,20 @@ class PPO:
                         print(param.data)
                     else:
                         print(param.data.max(dim=1))
-            return
         obs = self.env.reset()
         obs = self.get_torch_obs(obs)
-        last_obs = obs
         i = 0
         while True:
             i +=1
             with torch.no_grad():
-                actions, _, _ = self.agent.get_action_and_value(obs, do_sample=False)
-            obs, reward, dones, info = self.env.step(actions.numpy())
+                actions, _, _ = self.agent.get_action_and_value(obs, do_sample=False, print_probs=with_pause)
+            obs, _, _, _ = self.env.step(actions.numpy())
             obs = self.get_torch_obs(obs)
             self.env.render("human")
             if with_pause and (i % 4) == 0:
                 c = input("Continue?")
+            elif not with_pause:
+                time.sleep(.04)
 
     def log_rewards(self, rewards, dones):
         self.episode_rewards_cur += rewards
@@ -105,6 +106,9 @@ class PPO:
                 next_obs, reward, dones, info = self.env.step(actions.numpy())
                 next_obs = self.get_torch_obs(next_obs)
                 next_done = torch.tensor(get_next_done_vectorized(dones)).to(Settings.device)
+                for i in range(self.env_number):
+                    if not next_done[i] and reward[i] != 0:
+                        next_done[i] = 1
                 all_obs[step] = obs
                 all_actions[step] = actions
                 rewards[step] = torch.tensor(reward)
