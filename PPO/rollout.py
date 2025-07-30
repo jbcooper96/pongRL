@@ -7,27 +7,11 @@ from settings import Settings
 import torch
 import wandb
 
-learning_rate = 1e-5
-batch_size = 40
-epochs = 10
-entropy_coef = .01
-
-wandb.init(
-    project="Pong ppo",
-    config={
-        "learning_rate": learning_rate,
-        "batch_size": batch_size,
-        "epochs": epochs,
-        "entropy": entropy_coef,
-        "optimizer": "adamW"
-    }
-)
-
 parser = argparse.ArgumentParser(description='Script to train or test pong agent.')
 parser.add_argument('-l', '--load', help='Load saved model', action='store_true')
 parser.add_argument('-r', '--render', help='Render rollout for testing', action='store_true')
 parser.add_argument('-v', '--record', help='Record video for testing', action='store_true')
-parser.add_argument('-p', '--debugPrint', help='Record video for testing', action='store_true')
+parser.add_argument('-p', '--debugPrint', help='Pause while running and print hidden states', action='store_true')
 parser.add_argument('-d', '--device', help="Device to run torch models on")
 parser.add_argument('-e', '--env', help="Number of environments")
 
@@ -37,6 +21,24 @@ render = args.render
 debug = args.debugPrint
 if args.device in ["cuda", "cpu", "mps"]:
     Settings.device = torch.device(args.device)
+
+learning_rate = 1e-5
+batch_size = 40
+epochs = 10
+entropy_coef = .01
+
+if not load:
+    wandb.init(
+        project="Pong ppo",
+        config={
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "entropy": entropy_coef,
+            "optimizer": "adamW"
+        }
+    )
+
 
 print(Settings.device)
 print("CUDA version:", torch.version.cuda)

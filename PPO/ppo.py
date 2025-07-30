@@ -23,7 +23,7 @@ class PPO:
         self.clip_coef = clip_coef
         self.opt = torch.optim.AdamW(self.agent.parameters(), learning_rate)
         if load:
-            self.opt.load_state_dict(torch.load(OPT_PATH, weights_only=True))
+            self.opt.load_state_dict(torch.load(OPT_PATH, weights_only=True, map_location=Settings.device))
             for param_group in self.opt.param_groups:
                 param_group['lr'] = learning_rate
 

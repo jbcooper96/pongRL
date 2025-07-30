@@ -64,8 +64,8 @@ class PPOAgent:
         torch.save(self.value_model.state_dict(), value_file)
 
     def load(self): 
-        self.model.load_state_dict(torch.load(ACTION_FILE, weights_only=True))
-        self.value_model.load_state_dict(torch.load(VALUE_FILE, weights_only=True))
+        self.model.load_state_dict(torch.load(ACTION_FILE, weights_only=True, map_location=Settings.device))
+        self.value_model.load_state_dict(torch.load(VALUE_FILE, weights_only=True, map_location=Settings.device))
 
 
 
